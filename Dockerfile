@@ -68,30 +68,3 @@ EXPOSE 5000
 # Command to run the application
 CMD ["/app/scripts/start.sh"]
 
-
-### Create a .dockerignore file to further reduce size:
-# .dockerignore
-.git
-.github
-**/__pycache__
-**/*.pyc
-**/*.pyo
-**/*.pyd
-.Python
-env/
-venv/
-ENV/
-.pytest_cache/
-.coverage
-htmlcov/
-.tox/
-.nox/
-.hypothesis/
-.vscode/
-.idea/
-**/*.so
-.DS_Store
-logs/
-tests/
-docs/
-notebooks/
