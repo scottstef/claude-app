@@ -1,6 +1,7 @@
 To manually trigger a build:
 ```
 gcloud builds triggers run manual-claude-deployment-trigger --region=us-central1
+gcloud builds submit --config cloudbuild.yaml
 ```
 
 Recently added github integration with these commands in your chat:

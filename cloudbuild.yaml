@@ -36,7 +36,7 @@ steps:
         "--set-env-vars",
         "GCS_BUCKET_NAME=claude_chat_backups",
         "--set-secrets",
-        "ANTHROPIC_API_KEY=anthropic-api-key:latest,SECRET_KEY=flask-secret-key:latest",
+        "ANTHROPIC_API_KEY=anthropic-api-key:latest,SECRET_KEY=flask-secret-key:latest,GITHUB_TOKEN=github-token:latest",
       ]
 
 images:

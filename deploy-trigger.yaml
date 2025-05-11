@@ -1,8 +1,0 @@
-name: claude-app-deploy
-description: "Deploy Claude Chat App to Cloud Run on push to deploy branch"
-github:
-  owner: scottstef
-  name: claude-app
-  push:
-    branch: ^deploy$
-filename: cloudbuild.yaml
