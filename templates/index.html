@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Claude File Analyzer</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #555;
+            font-weight: 500;
+        }
+        input[type="file"],
+        input[type="text"],
+        textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        textarea {
+            height: 100px;
+            resize: vertical;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-right: 10px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .result {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 4px;
+            white-space: pre-wrap;
+            display: none;
+        }
+        .error {
+            color: #dc3545;
+            margin-top: 10px;
+        }
+        .loading {
+            text-align: center;
+            color: #007bff;
+            margin-top: 20px;
+            display: none;
+        }
+        .tabs {
+            display: flex;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #ddd;
+        }
+        .tab {
+            padding: 10px 20px;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+        }
+        .tab.active {
+            border-bottom-color: #007bff;
+            color: #007bff;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Claude File Analyzer & Chat</h1>
+        
+        <div class="tabs">
+            <div class="tab" data-tab="upload">File Upload</div>
+            <div class="tab active" data-tab="chat">Simple Chat</div>
+        </div>
+        
+        <div id="upload-tab" class="tab-content">
+            <form id="upload-form">
+                <div class="form-group">
+                    label for="file">Select File to Analyze (Optional):</label>
+                    <input type="file" id="file" name="file" accept=".txt,.pdf,.png,.jpg,.jpeg,.gif,.csv,.json,.py,.js,.html,.css,.md,.doc, .docx">
+                    <small>Supported formats: Text files, Images, CSV, JSON, and common code files</small>
+                </div>
+                
+                <div class="form-group">
+                    <<label for="message">Message (Required if no file selected):</label>
+                    <textarea id="message" name="message" placeholder="E.g., 'Summarize this document', 'What are the key insights?', 'Find bugs in this code', or ask any question..."></textarea>
+                </div>
+                
+                <button type="submit">Upload and Analyze File</button>
+            </form>
+        </div>
+        
+        <div id="chat-tab" class="tab-content active">
+            <form id="chat-form">
+                <div class="form-group">
+                    <label for="chat-message">Message:</label>
+                    <textarea id="chat-message" name="message" placeholder="Type your message here..."></textarea>
+                </div>
+                
+                <button type="submit">Send Message</button>
+            </form>
+        </div><br>
+        <div class="conversation-controls" style="margin-bottom: 20px;">
+            <button id="clear-history-btn" type="button" style="background: #6c757d;">Clear History</button>
+            <button id="show-history-btn" type="button" style="background: #17a2b8;">Show History</button>
+            <span id="message-count"></span>
+        </div>
+        <div class="loading">Analyzing... Please wait.</div>
+        <div id="result" class="result"></div>
+        <div id="error" class="error"></div>
+    </div>
+
+    <script>
+        // Tab switching
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                // Update active tab
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+                
+                tab.classList.add('active');
+                document.getElementById(`${tab.dataset.tab}-tab`).classList.add('active');
+            });
+        });
+        
+        // File upload form
+        document.getElementById('upload-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const fileInput = document.getElementById('file');
+            const messageInput = document.getElementById('message');
+            const resultDiv = document.getElementById('result');
+            const errorDiv = document.getElementById('error');
+            const loadingDiv = document.querySelector('.loading');
+            const submitButton = e.target.querySelector('button[type="submit"]');
+            
+            // Clear previous results
+            resultDiv.style.display = 'none';
+            errorDiv.textContent = '';
+            resultDiv.textContent = '';
+            
+            if (!fileInput.files[0] && !messageInput.value.trim()) {
+                errorDiv.textContent = 'Please select a file or enter a message';
+                return;
+            }
+            
+            const formData = new FormData();
+            if (fileInput.files[0]) {
+                formData.append('file', fileInput.files[0]);
+            }
+            formData.append('message', messageInput.value);
+            
+            try {
+                submitButton.disabled = true;
+                loadingDiv.style.display = 'block';
+                
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    resultDiv.textContent = data.analysis;
+                    resultDiv.style.display = 'block';
+                } else {
+                    errorDiv.textContent = data.error || 'An error occurred';
+                }
+            } catch (error) {
+                errorDiv.textContent = 'Error: ' + error.message;
+            } finally {
+                submitButton.disabled = false;
+                loadingDiv.style.display = 'none';
+            }
+        });
+        
+        // Chat form
+        document.getElementById('chat-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const messageInput = document.getElementById('chat-message');
+            const resultDiv = document.getElementById('result');
+            const errorDiv = document.getElementById('error');
+            const loadingDiv = document.querySelector('.loading');
+            const submitButton = e.target.querySelector('button[type="submit"]');
+            
+            // Clear previous results
+            resultDiv.style.display = 'none';
+            errorDiv.textContent = '';
+            resultDiv.textContent = '';
+            
+            if (!messageInput.value.trim()) {
+                errorDiv.textContent = 'Please enter a message';
+                return;
+            }
+            
+            try {
+                submitButton.disabled = true;
+                loadingDiv.style.display = 'block';
+                
+                const response = await fetch('/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        message: messageInput.value
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.response) {
+                    resultDiv.textContent = data.response;
+                    resultDiv.style.display = 'block';
+                    messageInput.value = '';
+                } else {
+                    errorDiv.textContent = data.error || 'An error occurred';
+                }
+            } catch (error) {
+                errorDiv.textContent = 'Error: ' + error.message;
+            } finally {
+                submitButton.disabled = false;
+                loadingDiv.style.display = 'none';
+            }
+        });
+        document.getElementById('clear-history-btn').addEventListener('click', async () => {
+    try {
+        const response = await fetch('/clear_history', {
+            method: 'POST'
+        });
+        const data = await response.json();
+        
+        if (data.success) {
+            alert('Conversation history cleared!');
+            updateMessageCount(0);
+        }
+    } catch (error) {
+        console.error('Error clearing history:', error);
+    }
+});
+
+document.getElementById('show-history-btn').addEventListener('click', async () => {
+    try {
+        const response = await fetch('/get_history');
+        const data = await response.json();
+        
+        if (data.success) {
+            const historyText = data.history.map(msg => 
+                `${msg.role.toUpperCase()}: ${typeof msg.content === 'string' ? msg.content : 'File attached'}`
+            ).join('\n\n---\n\n');
+            
+            alert(historyText || 'No conversation history');
+        }
+    } catch (error) {
+        console.error('Error getting history:', error);
+    }
+});
+
+function updateMessageCount(count) {
+    document.getElementById('message-count').textContent = `Messages: ${count}`;
+}
+
+// Update the chat form submission to show message count
+// Modify the existing chat form handler to include this:
+if (data.response) {
+    resultDiv.textContent = data.response;
+    resultDiv.style.display = 'block';
+    messageInput.value = '';
+    // NEW: Update message count
+    if (data.conversation_length) {
+        updateMessageCount(data.conversation_length);
+    }
+}
+</script>
+</body>
+</html>

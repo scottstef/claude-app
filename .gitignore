@@ -8,3 +8,5 @@ node_modules/
 .DS_Store
 .vscode/
 data/
+uploads/
+chat_history.db
