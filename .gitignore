@@ -1,0 +1,10 @@
+.env
+service-account-key.json
+*.pyc
+__pycache__/
+.pytest_cache/
+*.log
+node_modules/
+.DS_Store
+.vscode/
+data/
