@@ -1,9 +1,9 @@
 #!/bin/bash
 # scripts/start.sh
 
-echo "Starting Claude Chat Application on Cloud Run..."
+echo "Starting Claude Chat Application..."
 
-# Create necessary directories in /tmp (writable in Cloud Run)
+# Create necessary directories
 mkdir -p /tmp/data /tmp/uploads
 chmod 755 /tmp/data /tmp/uploads
 
@@ -16,12 +16,38 @@ fi
 # Download database from Cloud Storage on startup
 if [ -n "$GCS_BUCKET_NAME" ]; then
     echo "Downloading database from gs://$GCS_BUCKET_NAME/"
-    gsutil cp gs://$GCS_BUCKET_NAME/chat_history.db /tmp/data/chat_history.db 2>/dev/null || echo "No existing database found, starting fresh"
+    gsutil cp gs://$GCS_BUCKET_NAME/chat_history.
+
+
+
+
+
+/tmp/data/chat_history.db 2>/dev/null || echo "No existing database found, starting fresh"
 fi
+
+# NEW: Graceful shutdown function
+graceful_shutdown() {
+    echo "Received shutdown signal. Backing up database..."
+    
+    if [ -n "$GCS_BUCKET_NAME" ]; then
+        # Backup database before shutdown
+        timestamp=$(date +%Y%m%d_%H%M%S)
+        gsutil cp /tmp/data/chat_history.db gs://$GCS_BUCKET_NAME/chat_history.db
+        gsutil cp /tmp/data/chat_history.db gs://$GCS_BUCKET_NAME/backups/chat_history_${timestamp}_shutdown.db
+        echo "Database backed up successfully"
+    fi
+    
+    # Gracefully terminate Gunicorn
+    kill -TERM "$GUNICORN_PID"
+    exit 0
+}
+
+# Set up signal handlers
+trap graceful_shutdown SIGTERM SIGINT
 
 # Start Gunicorn server
 echo "Starting Gunicorn application server..."
-exec gunicorn \
+gunicorn \
     --bind 0.0.0.0:$PORT \
     --workers 2 \
     --threads 2 \
@@ -31,4 +57,10 @@ exec gunicorn \
     --access-logfile - \
     --error-logfile - \
     --log-level info \
-    run:app
+    run:app &
+
+# Store Gunicorn PID for graceful shutdown
+GUNICORN_PID=$!
+
+# Wait for Gunicorn to finish
+wait $GUNICORN_PID
