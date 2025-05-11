@@ -2,3 +2,10 @@ To manually trigger a build:
 ```
 gcloud builds triggers run manual-claude-deployment-trigger --region=us-central1
 ```
+
+Recently added github integration with these commands in your chat:
+
+"List my repos" - Shows your GitHub repositories
+"Show file app.py from claude-app repo" - Gets a specific file from a repo
+"What does this code do?" (after showing a file) - Claude will analyze the code
+

@@ -26,6 +26,7 @@ def create_app():
     app.register_blueprint(upload_bp)
     app.register_blueprint(admin_bp)
     app.register_blueprint(health_bp)
+    app.register_blueprint(github_bp)
     
     # Root route
     @app.route('/')
