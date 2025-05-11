@@ -1,25 +1,8 @@
-# Dockerfile
-FROM python:3.12-slim
+#Dockerfile
+FROM ghcr.io/scottstef/claude-base:latest
 
 # Set working directory
 WORKDIR /app
-
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
-    gcc \
-    python3-dev \
-    libxml2-dev \
-    libxslt1-dev \
-    curl \
-    gnupg \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install Google Cloud SDK (minimal installation)
-RUN echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | tee -a /etc/apt/sources.list.d/google-cloud-sdk.list && \
-    curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key --keyring /usr/share/keyrings/cloud.google.gpg add - && \
-    apt-get update && \
-    apt-get install -y google-cloud-cli && \
-    rm -rf /var/lib/apt/lists/*
 
 # Copy requirements and install Python dependencies
 COPY requirements.txt .
@@ -46,3 +29,8 @@ EXPOSE 5000
 
 # Command to run the application
 CMD ["/app/scripts/start.sh"]
+
+
+## Build and Push Instructions
+# docker build -t your-repo/base-image:tag -f Dockerfile.base .
+# docker push your-repo/base-image:tag
