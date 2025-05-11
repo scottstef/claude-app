@@ -10,3 +10,4 @@ node_modules/
 data/
 uploads/
 chat_history.db
+gh_deploy_key.json
