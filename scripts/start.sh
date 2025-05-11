@@ -16,7 +16,7 @@ fi
 # Download database from Cloud Storage on startup
 if [ -n "$GCS_BUCKET_NAME" ]; then
     echo "Downloading database from gs://$GCS_BUCKET_NAME/"
-    gsutil cp gs://$GCS_BUCKET_NAME/chat_history /tmp/data/chat_history.db 2>/dev/null || echo "No existing database found, starting fresh"
+    gsutil cp gs://$GCS_BUCKET_NAME/chat_history.db /tmp/data/chat_history.db 2>/dev/null || echo "No existing database found, starting fresh"
 fi
 
 # NEW: Graceful shutdown function
