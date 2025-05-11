@@ -8,6 +8,14 @@ health_bp = Blueprint('health', __name__)
 @health_bp.route('/health', methods=['GET'])
 def health_check():
     """Health check endpoint for container monitoring"""
+    return jsonify({'status': 'healthy'}), 200
+
+@health_bp.route('/health/detailed', methods=['GET'])
+def detailed_health_check():
+    """Detailed health check with database and file system checks"""
+    from app.database import get_db
+    from app.config import Config
+    
     try:
         # Test database connection
         with get_db() as conn:
@@ -24,7 +32,7 @@ def health_check():
             'status': 'unhealthy',
             'error': str(e)
         }), 500
-
+    
 @health_bp.route('/test', methods=['GET'])
 def test():
     """Test route to verify the API is working"""
