@@ -52,10 +52,9 @@ jobs:
         with:
           context: .
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          tags: |
+            us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/containers/${{ env.APP_IMAGE_NAME }}:latest
+            us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/containers/${{ env.APP_IMAGE_NAME }}:${{ steps.version.outputs.version }}
 
       # Deploy to Cloud Run
       - name: Deploy to Cloud Run
