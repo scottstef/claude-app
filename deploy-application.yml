@@ -1,0 +1,91 @@
+name: Build and Deploy Application
+
+on:
+  push:
+    branches: [main, master] # Trigger on pushes to main or master
+  pull_request:
+    branches: [main, master] # Build but don't deploy on PRs
+  workflow_dispatch: # Allow manual triggering
+
+env:
+  APP_IMAGE_NAME: claude-chat-app
+  GCP_REGION: us-central1
+  SERVICE_NAME: claude-chat-app
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write # Needed for GCP authentication
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      # Login to GitHub Container Registry to pull base image
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.CR_PAT }}
+
+      # Generate version tag (commit SHA + date)
+      - name: Generate version tag
+        id: version
+        run: |
+          SHA_SHORT=$(echo ${{ github.sha }} | cut -c1-7)
+          echo "version=${SHA_SHORT}-$(date +'%Y%m%d')" >> $GITHUB_OUTPUT
+
+      # Authenticate to Google Cloud
+      - id: "auth"
+        name: "Authenticate to Google Cloud"
+        uses: "google-github-actions/auth@v1"
+        with:
+          credentials_json: "${{ secrets.GCP_SA_KEY }}"
+
+      # Set up Google Cloud SDK
+      - name: "Set up Cloud SDK"
+        uses: "google-github-actions/setup-gcloud@v1"
+
+      # Configure Docker to use gcloud as credential helper
+      - name: Configure Docker for GCP
+        run: |
+          gcloud auth configure-docker
+
+      # Build and push to Google Container Registry
+      - name: Build and push to GCR
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          push: ${{ github.event_name != 'pull_request' }} # Only push on non-PR events
+          tags: |
+            gcr.io/${{ secrets.GCP_PROJECT_ID }}/${{ env.APP_IMAGE_NAME }}:latest
+            gcr.io/${{ secrets.GCP_PROJECT_ID }}/${{ env.APP_IMAGE_NAME }}:${{ steps.version.outputs.version }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # Deploy to Cloud Run (only on push to main, not PRs)
+      - name: Deploy to Cloud Run
+        if: github.event_name != 'pull_request'
+        run: |
+          gcloud run deploy ${{ env.SERVICE_NAME }} \
+            --image gcr.io/${{ secrets.GCP_PROJECT_ID }}/${{ env.APP_IMAGE_NAME }}:${{ steps.version.outputs.version }} \
+            --region ${{ env.GCP_REGION }} \
+            --platform managed \
+            --allow-unauthenticated \
+            --port 5000 \
+            --memory 1Gi \
+            --cpu 1 \
+            --max-instances 1 \
+            --min-instances 0 \
+            --timeout 600s \
+            --concurrency 80 \
+            --service-account claude-chat-app@${{ secrets.GCP_PROJECT_ID }}.iam.gserviceaccount.com \
+            --set-env-vars GCS_BUCKET_NAME=claude_chat_backups \
+            --set-secrets ANTHROPIC_API_KEY=anthropic-api-key:latest,SECRET_KEY=flask-secret-key:latest,GITHUB_TOKEN=github-token:latest
