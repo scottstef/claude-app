@@ -3,7 +3,9 @@ version: '3.8'
 
 services:
   claude-app:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
     container_name: claude-chat-app
     ports:
       - "5000:5000"
@@ -13,14 +15,22 @@ services:
       - GCS_BUCKET_NAME=${GCS_BUCKET_NAME}
       - GOOGLE_APPLICATION_CREDENTIALS=/app/service-account-key.json
     volumes:
-      # Mount the service account key
-      - ./service-account-key.json:/app/service-account-key.json:ro
-      # Mount persistent volumes
-      - ./data:/app/data
-      - ./uploads:/app/uploads
+      # Only bind-mount if the file exists
+      - type: bind
+        source: ./service-account-key.json
+        target: /app/service-account-key.json
+        read_only: true
+      # Create named volumes for data persistence
+      - type: bind
+        source: ./data
+        target: /app/data
+      - type: bind
+        source: ./uploads
+        target: /app/uploads
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 40s
