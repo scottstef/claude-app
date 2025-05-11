@@ -118,3 +118,24 @@ def chat():
         import traceback
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
+
+@chat_bp.route('/get_history', methods=['GET'])
+def get_chat_history():
+    """Endpoint to retrieve conversation history for the current session"""
+    try:
+        # Get the current session ID
+        session_id = get_session_id()
+        
+        # Retrieve history from database
+        history = get_conversation_history(session_id)
+        
+        return jsonify({
+            'history': history,
+            'conversation_length': len(history)
+        })
+        
+    except Exception as e:
+        print(f"Error in get_history endpoint: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500

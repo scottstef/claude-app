@@ -45,6 +45,7 @@
             height: 100px;
             resize: vertical;
         }
+        
         button {
             background: #007bff;
             color: white;
@@ -62,6 +63,7 @@
             background: #ccc;
             cursor: not-allowed;
         }
+        
         .result {
             margin-top: 30px;
             padding: 20px;
@@ -114,13 +116,15 @@
         <div id="upload-tab" class="tab-content">
             <form id="upload-form">
                 <div class="form-group">
-                    label for="file">Select File to Analyze (Optional):</label>
+        
+                    <label for="file">Select File to Analyze (Optional):</label>
                     <input type="file" id="file" name="file" accept=".txt,.pdf,.png,.jpg,.jpeg,.gif,.csv,.json,.py,.js,.html,.css,.md,.doc, .docx">
                     <small>Supported formats: Text files, Images, CSV, JSON, and common code files</small>
                 </div>
                 
                 <div class="form-group">
-                    <<label for="message">Message (Required if no file selected):</label>
+        
+                    <label for="message">Message (Required if no file selected):</label>
                     <textarea id="message" name="message" placeholder="E.g., 'Summarize this document', 'What are the key insights?', 'Find bugs in this code', or ask any question..."></textarea>
                 </div>
                 
@@ -253,6 +257,11 @@
                     resultDiv.textContent = data.response;
                     resultDiv.style.display = 'block';
                     messageInput.value = '';
+                    
+        
+                    if (data.conversation_length) {
+                        updateMessageCount(data.conversation_length);
+                    }
                 } else {
                     errorDiv.textContent = data.error || 'An error occurred';
                 }
@@ -263,54 +272,63 @@
                 loadingDiv.style.display = 'none';
             }
         });
+        
         document.getElementById('clear-history-btn').addEventListener('click', async () => {
-    try {
-        const response = await fetch('/clear_history', {
-            method: 'POST'
+            try {
+                const response = await fetch('/clear_history', {
+                    method: 'POST'
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert('Conversation history cleared!');
+                    updateMessageCount(0);
+                }
+            } catch (error) {
+                console.error('Error clearing history:', error);
+            }
         });
-        const data = await response.json();
+
+        document.getElementById('show-history-btn').addEventListener('click', async () => {
+            try {
         
-        if (data.success) {
-            alert('Conversation history cleared!');
-            updateMessageCount(0);
-        }
-    } catch (error) {
-        console.error('Error clearing history:', error);
-    }
-});
-
-document.getElementById('show-history-btn').addEventListener('click', async () => {
-    try {
-        const response = await fetch('/get_history');
-        const data = await response.json();
+                const loadingDiv = document.querySelector('.loading');
+                const resultDiv = document.getElementById('result');
+                const errorDiv = document.getElementById('error');
+                
+                loadingDiv.style.display = 'block';
+                resultDiv.style.display = 'none';
+                errorDiv.textContent = '';
+                
+                const response = await fetch('/get_history');
+                const data = await response.json();
+                
+                loadingDiv.style.display = 'none';
+                
+                if (data.success) {
         
-        if (data.success) {
-            const historyText = data.history.map(msg => 
-                `${msg.role.toUpperCase()}: ${typeof msg.content === 'string' ? msg.content : 'File attached'}`
-            ).join('\n\n---\n\n');
-            
-            alert(historyText || 'No conversation history');
+                    const historyText = data.history.map(msg => 
+                        `${msg.role.toUpperCase()}: ${typeof msg.content === 'string' ? msg.content : 'File attached'}`
+                    ).join('\n\n---\n\n');
+                    
+                    resultDiv.textContent = historyText || 'No conversation history';
+                    resultDiv.style.display = 'block';
+                } else {
+        
+                    errorDiv.textContent = 'Failed to load history: ' + (data.error || 'Unknown error');
+                }
+            } catch (error) {
+                document.querySelector('.loading').style.display = 'none';
+                document.getElementById('error').textContent = 'Error getting history: ' + error.message;
+                console.error('Error getting history:', error);
+            }
+        });
+
+        function updateMessageCount(count) {
+            document.getElementById('message-count').textContent = `Messages: ${count}`;
         }
-    } catch (error) {
-        console.error('Error getting history:', error);
-    }
-});
 
-function updateMessageCount(count) {
-    document.getElementById('message-count').textContent = `Messages: ${count}`;
-}
-
-// Update the chat form submission to show message count
-// Modify the existing chat form handler to include this:
-if (data.response) {
-    resultDiv.textContent = data.response;
-    resultDiv.style.display = 'block';
-    messageInput.value = '';
-    // NEW: Update message count
-    if (data.conversation_length) {
-        updateMessageCount(data.conversation_length);
-    }
-}
-</script>
+        
+    </script>
 </body>
 </html>
