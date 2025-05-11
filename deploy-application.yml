@@ -5,10 +5,6 @@ on:
     branches: [main, master]
   workflow_dispatch:
 
-permissions:
-  contents: read
-  id-token: write # Required for Workload Identity Federation
-
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
@@ -25,13 +21,12 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.CR_PAT }}
 
-      # Authenticate to Google Cloud using Workload Identity Federation
+      # Authenticate to Google Cloud using service account key
       - id: "auth"
         name: "Authenticate to Google Cloud"
         uses: "google-github-actions/auth@v1"
         with:
-          workload_identity_provider: "projects/1097268573604/locations/global/workloadIdentityPools/github-actions-pool/providers/github-provider"
-          service_account: "github-actions-sa@stefanoski-generic-code.iam.gserviceaccount.com"
+          credentials_json: "${{ secrets.GCP_SA_KEY }}"
 
       # Set up Google Cloud SDK
       - name: "Set up Cloud SDK"
