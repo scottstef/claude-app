@@ -67,11 +67,9 @@ EXPOSE 5000
 
 # Command to run the application
 CMD ["/app/scripts/start.sh"]
-```
+
 
 ### Create a .dockerignore file to further reduce size:
-
-```
 # .dockerignore
 .git
 .github
