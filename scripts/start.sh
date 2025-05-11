@@ -16,13 +16,7 @@ fi
 # Download database from Cloud Storage on startup
 if [ -n "$GCS_BUCKET_NAME" ]; then
     echo "Downloading database from gs://$GCS_BUCKET_NAME/"
-    gsutil cp gs://$GCS_BUCKET_NAME/chat_history.
-
-
-
-
-
-/tmp/data/chat_history.db 2>/dev/null || echo "No existing database found, starting fresh"
+    gsutil cp gs://$GCS_BUCKET_NAME/chat_history /tmp/data/chat_history.db 2>/dev/null || echo "No existing database found, starting fresh"
 fi
 
 # NEW: Graceful shutdown function
@@ -38,7 +32,10 @@ graceful_shutdown() {
     fi
     
     # Gracefully terminate Gunicorn
-    kill -TERM "$GUNICORN_PID"
+    if [ -n "$GUNICORN_PID" ]; then
+        echo "Terminating Gunicorn..."
+        kill -TERM "$GUNICORN_PID" 2>/dev/null || echo "Failed to terminate Gunicorn"
+    fi
     exit 0
 }
 
