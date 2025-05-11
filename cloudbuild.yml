@@ -44,7 +44,6 @@ steps:
         "--set-secrets",
         "ANTHROPIC_API_KEY=anthropic-api-key:latest,SECRET_KEY=flask-secret-key:latest,GITHUB_TOKEN=github-token:latest",
         "--cpu-idle",
-        "--session-affinity=false",
       ]
 
 images:
