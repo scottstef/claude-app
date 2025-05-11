@@ -52,6 +52,8 @@ jobs:
         with:
           context: .
           push: true
+          provenance: false
+          labels: ${{ steps.meta.outputs.labels }}
           tags: |
             us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/containers/${{ env.APP_IMAGE_NAME }}:latest
             us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/containers/${{ env.APP_IMAGE_NAME }}:${{ steps.version.outputs.version }}
