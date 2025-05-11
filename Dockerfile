@@ -27,14 +27,10 @@ RUN apt-get update && apt-get install -y \
     libxml2 \
     libxslt1.1 \
     curl \
-    # NEW: Install minimal gcloud CLI components instead of the full SDK
-    && curl -O https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-cli-slim-linux-x86_64.tar.gz \
-    && mkdir -p /usr/local/gcloud \
-    && tar -xf google-cloud-cli-slim-linux-x86_64.tar.gz -C /usr/local/gcloud \
-    && /usr/local/gcloud/google-cloud-sdk/install.sh --quiet --usage-reporting=false --path-update=true --additional-components gcloud-crc32c gsutil \
-    && rm google-cloud-cli-slim-linux-x86_64.tar.gz \
+    python3-pip \
+    && pip install --no-cache-dir gsutil \
     && rm -rf /var/lib/apt/lists/*
-
+    
 # Add gcloud to PATH
 ENV PATH $PATH:/usr/local/gcloud/google-cloud-sdk/bin
 
