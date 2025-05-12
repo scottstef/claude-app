@@ -1,4 +1,4 @@
-name: Build and Deploy to Cloud Run
+name: Build and Deploy to Cloud Run with Workload Identity
 
 on:
   push:
@@ -14,8 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: write
-      id-token: write
+      id-token: write # Required for Workload Identity Federation
 
     steps:
       - name: Checkout repository
@@ -27,13 +26,19 @@ jobs:
           SHA_SHORT=$(echo ${{ github.sha }} | cut -c1-7)
           echo "version=$SHA_SHORT-$(date +'%Y%m%d')" >> $GITHUB_OUTPUT
 
-      # Authenticate directly with the service account key
-      - name: Set up Cloud SDK
-        uses: google-github-actions/setup-gcloud@v1
+      # Authenticate using Workload Identity Federation
+      - id: "auth"
+        name: "Authenticate to Google Cloud"
+        uses: "google-github-actions/auth@v1"
         with:
-          service_account_key: ${{ secrets.GCP_SA_KEY }}
-          project_id: ${{ secrets.GCP_PROJECT_ID }}
-          export_default_credentials: true
+          workload_identity_provider: "projects/YOUR_PROJECT_NUMBER/locations/global/workloadIdentityPools/github-pool/providers/github-provider"
+          service_account: "github-actions-deployer@${{ secrets.GCP_PROJECT_ID }}.iam.gserviceaccount.com"
+
+      # Set up Google Cloud SDK
+      - name: "Set up Cloud SDK"
+        uses: "google-github-actions/setup-gcloud@v1"
+        with:
+          project_id: "${{ secrets.GCP_PROJECT_ID }}"
 
       # Configure Docker for GCR
       - name: Configure Docker for GCR
