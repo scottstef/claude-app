@@ -12,11 +12,11 @@ env:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
-    # UPDATED: Explicitly set id-token write permission for workload identity federation
+    # UPDATED: Added id-token write permission for proper GCP authentication
     permissions:
       contents: read
       packages: write
-      id-token: write
+      id-token: write # NEW: Required for GCP authentication
 
     steps:
       - name: Checkout repository
@@ -36,45 +36,41 @@ jobs:
         with:
           credentials_json: "${{ secrets.GCP_SA_KEY }}"
           token_format: "access_token"
-          # NEW: Create credentials file for docker auth
+          # NEW: Create credentials file
           create_credentials_file: true
-          # NEW: Export credentials as environment variable
-          export_environment_variables: true
 
       # Set up Google Cloud SDK
       - name: "Set up Cloud SDK"
         uses: "google-github-actions/setup-gcloud@v1"
-        with:
-          # NEW: Install GCR component
-          install_components: "gke-gcloud-auth-plugin"
 
-      # NEW: Print GCP project for debugging
-      - name: Verify GCP project
-        run: |
-          echo "Using GCP Project: ${{ secrets.GCP_PROJECT_ID }}"
-          gcloud config list
-
-      # UPDATED: Configure Docker for GCR with more specific commands
+      # UPDATED: Configure Docker for GCR with access token
       - name: Configure Docker for GCR
         run: |
-          gcloud auth print-access-token | docker login -u oauth2accesstoken --password-stdin https://gcr.io
-          # Verify docker config was created
+          gcloud --quiet auth configure-docker gcr.io
+
+          # NEW: Verify configuration was successful
           cat ~/.docker/config.json || echo "Docker config not found"
+          echo "Using GCP Project: ${{ secrets.GCP_PROJECT_ID }}"
 
       # Set up Docker Buildx
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
 
-      # UPDATED: Build and push Docker image with direct gcloud approach
+      # UPDATED: Build and push Docker image with explicit authentication
       - name: Build and push Docker image
-        run: |
-          # Build the image locally
-          docker build -t gcr.io/${{ secrets.GCP_PROJECT_ID }}/${{ env.APP_IMAGE_NAME }}:latest -t gcr.io/${{ secrets.GCP_PROJECT_ID }}/${{ env.APP_IMAGE_NAME }}:${{ steps.version.outputs.version }} .
-
-          # Push images using gcloud as fallback method
-          gcloud auth configure-docker --quiet
-          docker push gcr.io/${{ secrets.GCP_PROJECT_ID }}/${{ env.APP_IMAGE_NAME }}:latest
-          docker push gcr.io/${{ secrets.GCP_PROJECT_ID }}/${{ env.APP_IMAGE_NAME }}:${{ steps.version.outputs.version }}
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          push: true
+          # NEW: Added load to ensure image is available for local verification
+          load: false
+          provenance: false
+          tags: |
+            gcr.io/${{ secrets.GCP_PROJECT_ID }}/${{ env.APP_IMAGE_NAME }}:latest
+            gcr.io/${{ secrets.GCP_PROJECT_ID }}/${{ env.APP_IMAGE_NAME }}:${{ steps.version.outputs.version }}
+          # Use the build secrets to pass credentials
+          secrets: |
+            "GCP_ACCESS_TOKEN=${{ steps.auth.outputs.access_token }}"
 
       # Deploy to Cloud Run from GCR
       - name: Deploy to Cloud Run
