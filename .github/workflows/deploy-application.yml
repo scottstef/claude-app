@@ -21,68 +21,42 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      # Generate version tag
       - name: Generate version tag
         id: version
         run: |
           SHA_SHORT=$(echo ${{ github.sha }} | cut -c1-7)
           echo "version=$SHA_SHORT-$(date +'%Y%m%d')" >> $GITHUB_OUTPUT
 
-      # Authenticate to Google Cloud with explicit service account impersonation
-      - id: "auth"
-        name: "Authenticate to Google Cloud"
-        uses: "google-github-actions/auth@v1"
+      # Authenticate directly with the service account key
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v1
         with:
-          credentials_json: "${{ secrets.GCP_SA_KEY }}"
-          token_format: "access_token"
-          create_credentials_file: true
-          # Set explicit scopes for authentication
-          access_token_scopes: "https://www.googleapis.com/auth/cloud-platform"
+          service_account_key: ${{ secrets.GCP_SA_KEY }}
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+          export_default_credentials: true
 
-      # Set up Google Cloud SDK
-      - name: "Set up Cloud SDK"
-        uses: "google-github-actions/setup-gcloud@v1"
-        with:
-          version: ">= 363.0.0"
-          project_id: "${{ secrets.GCP_PROJECT_ID }}"
-          install_components: "beta,docker-credential-gcr"
-
-      # Configure Docker for GCR with explicit authentication
+      # Configure Docker for GCR
       - name: Configure Docker for GCR
         run: |
           gcloud auth configure-docker gcr.io --quiet
-          # Print Docker config for debugging (redacting sensitive info)
-          cat ~/.docker/config.json | grep -v auth | grep -v access_token
 
       # Set up Docker Buildx
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
 
-      # Build and push Docker image 
+      # Build and push Docker image
       - name: Build and push Docker image
         uses: docker/build-push-action@v4
         with:
           context: .
           push: true
-          load: false
-          provenance: false
           tags: |
             gcr.io/${{ secrets.GCP_PROJECT_ID }}/${{ env.APP_IMAGE_NAME }}:latest
             gcr.io/${{ secrets.GCP_PROJECT_ID }}/${{ env.APP_IMAGE_NAME }}:${{ steps.version.outputs.version }}
-          secrets: |
-            "GCP_ACCESS_TOKEN=${{ steps.auth.outputs.access_token }}"
 
       # Deploy to Cloud Run from GCR
       - name: Deploy to Cloud Run
         run: |
-          # Verify service account exists first
-          if ! gcloud iam service-accounts describe ${{ env.APP_IMAGE_NAME }}@${{ secrets.GCP_PROJECT_ID }}.iam.gserviceaccount.com > /dev/null 2>&1; then
-            echo "Creating service account for Cloud Run..."
-            gcloud iam service-accounts create ${{ env.APP_IMAGE_NAME }} \
-              --display-name="Claude Chat App Service Account"
-          fi
-          
-          # Deploy to Cloud Run
           gcloud run deploy ${{ env.APP_IMAGE_NAME }} \
             --image gcr.io/${{ secrets.GCP_PROJECT_ID }}/${{ env.APP_IMAGE_NAME }}:latest \
             --region ${{ env.GCP_REGION }} \
