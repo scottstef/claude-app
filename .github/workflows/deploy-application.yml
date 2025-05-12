@@ -12,11 +12,10 @@ env:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
-    # UPDATED: Added id-token write permission for proper GCP authentication
     permissions:
       contents: read
       packages: write
-      id-token: write # NEW: Required for GCP authentication
+      id-token: write
 
     steps:
       - name: Checkout repository
@@ -29,52 +28,61 @@ jobs:
           SHA_SHORT=$(echo ${{ github.sha }} | cut -c1-7)
           echo "version=$SHA_SHORT-$(date +'%Y%m%d')" >> $GITHUB_OUTPUT
 
-      # UPDATED: Enhanced Google Cloud authentication
+      # Authenticate to Google Cloud with explicit service account impersonation
       - id: "auth"
         name: "Authenticate to Google Cloud"
         uses: "google-github-actions/auth@v1"
         with:
           credentials_json: "${{ secrets.GCP_SA_KEY }}"
           token_format: "access_token"
-          # NEW: Create credentials file
           create_credentials_file: true
+          # Set explicit scopes for authentication
+          access_token_scopes: "https://www.googleapis.com/auth/cloud-platform"
 
       # Set up Google Cloud SDK
       - name: "Set up Cloud SDK"
         uses: "google-github-actions/setup-gcloud@v1"
+        with:
+          version: ">= 363.0.0"
+          project_id: "${{ secrets.GCP_PROJECT_ID }}"
+          install_components: "beta,docker-credential-gcr"
 
-      # UPDATED: Configure Docker for GCR with access token
+      # Configure Docker for GCR with explicit authentication
       - name: Configure Docker for GCR
         run: |
-          gcloud --quiet auth configure-docker gcr.io
-
-          # NEW: Verify configuration was successful
-          cat ~/.docker/config.json || echo "Docker config not found"
-          echo "Using GCP Project: ${{ secrets.GCP_PROJECT_ID }}"
+          gcloud auth configure-docker gcr.io --quiet
+          # Print Docker config for debugging (redacting sensitive info)
+          cat ~/.docker/config.json | grep -v auth | grep -v access_token
 
       # Set up Docker Buildx
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
 
-      # UPDATED: Build and push Docker image with explicit authentication
+      # Build and push Docker image 
       - name: Build and push Docker image
         uses: docker/build-push-action@v4
         with:
           context: .
           push: true
-          # NEW: Added load to ensure image is available for local verification
           load: false
           provenance: false
           tags: |
             gcr.io/${{ secrets.GCP_PROJECT_ID }}/${{ env.APP_IMAGE_NAME }}:latest
             gcr.io/${{ secrets.GCP_PROJECT_ID }}/${{ env.APP_IMAGE_NAME }}:${{ steps.version.outputs.version }}
-          # Use the build secrets to pass credentials
           secrets: |
             "GCP_ACCESS_TOKEN=${{ steps.auth.outputs.access_token }}"
 
       # Deploy to Cloud Run from GCR
       - name: Deploy to Cloud Run
         run: |
+          # Verify service account exists first
+          if ! gcloud iam service-accounts describe ${{ env.APP_IMAGE_NAME }}@${{ secrets.GCP_PROJECT_ID }}.iam.gserviceaccount.com > /dev/null 2>&1; then
+            echo "Creating service account for Cloud Run..."
+            gcloud iam service-accounts create ${{ env.APP_IMAGE_NAME }} \
+              --display-name="Claude Chat App Service Account"
+          fi
+          
+          # Deploy to Cloud Run
           gcloud run deploy ${{ env.APP_IMAGE_NAME }} \
             --image gcr.io/${{ secrets.GCP_PROJECT_ID }}/${{ env.APP_IMAGE_NAME }}:latest \
             --region ${{ env.GCP_REGION }} \
